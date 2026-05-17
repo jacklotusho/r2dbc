@@ -1,0 +1,70 @@
+# Application Configuration
+app:
+  jwt:
+    secret: YourBase64EncodedSecretKeyHereMustBeAtLeast256BitsLongForHS256Algorithm
+    expiration-ms: 86400000  # 24 hours in milliseconds
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  reset-token-expiry-minutes: 60
+
+spring:
+  application:
+    name: r2dbc-jwt-auth
+  webflux:
+    base-path: /demo
+  
+  # R2DBC Configuration (for reactive database access)
+  r2dbc:
+    url: r2dbc:postgresql://db-host:5432/r2dbc_auth_db
+    username: engine
+    password: ${DB_PASSWORD}
+    pool:
+      initial-size: 10
+      max-size: 20
+      max-idle-time: 30m
+  
+  # JDBC Configuration (required for Flyway migrations)
+  datasource:
+    url: jdbc:postgresql://db-host:5432/r2dbc_auth_db
+    username: engine
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: public
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${GMAIL_USERNAME}
+    password: ${GMAIL_APP_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+# Server Configuration
+server:
+  port: 8080
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.example.r2dbc: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.r2dbc: DEBUG
+    io.r2dbc: DEBUG
+
+# Springdoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    try-it-out-enabled: true
+    operations-sorter: method
+    tags-sorter: alpha

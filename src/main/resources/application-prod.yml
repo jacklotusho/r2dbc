@@ -1,0 +1,11 @@
+# Production Configuration
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.example.r2dbc: INFO
