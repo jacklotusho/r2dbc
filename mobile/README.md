@@ -1,706 +1,325 @@
-# R2DBC Auth Mobile - Expo React Native App
+# R2DBC Auth Mobile App
 
-A modern Expo React Native app with TypeScript, Expo Router, SecureStore, TanStack Query, and NativeWind for Spring Boot 4 JWT authentication backend.
+React Native mobile application built with Expo Router, featuring JWT authentication and role-based access control.
 
-## Tech Stack
+## 📱 Features
 
-- **Expo SDK 52+** with TypeScript
-- **Expo Router** (file-based routing, App Router mental model)
-- **expo-secure-store** for encrypted JWT storage
-- **TanStack Query v5** for server state management
-- **Axios** with interceptor for Bearer token
-- **NativeWind** (Tailwind for React Native)
-- **React Hook Form** + **Zod** for form validation
+- **JWT Authentication** with SecureStore (encrypted storage)
+- **Role-Based Access Control** (RBAC)
+- **Expo Router** file-based navigation
+- **TypeScript** for type safety
+- **NativeWind** (Tailwind CSS for React Native)
+- **React Query** for data fetching
+- **Form validation** with React Hook Form & Zod
 
-## Project Structure
+## 🏗️ Project Structure
 
 ```
 mobile/
-├── app/
-│   ├── (auth)/
-│   │   ├── _layout.tsx              # Auth stack layout
-│   │   ├── login.tsx                # Login screen
-│   │   ├── register.tsx             # Register screen
-│   │   └── forgot.tsx               # Forgot password screen
-│   ├── (tabs)/
-│   │   ├── _layout.tsx              # Tab navigator layout
-│   │   ├── profile.tsx              # User profile screen
-│   │   └── admin/
-│   │       └── users.tsx            # Admin users list (ROLE_ADMIN only)
-│   ├── _layout.tsx                  # Root layout with providers
-│   └── index.tsx                    # Entry point (redirects based on auth)
+├── app/                          # Expo Router app directory
+│   ├── _layout.tsx              # Root layout with providers
+│   ├── index.tsx                # Entry point with auth redirect
+│   ├── (auth)/                  # Auth group (unauthenticated routes)
+│   │   ├── _layout.tsx         # Auth layout with redirect guard
+│   │   ├── login.tsx           # Login screen
+│   │   ├── register.tsx        # Registration screen
+│   │   └── forgot.tsx          # Forgot password screen
+│   └── (tabs)/                  # Tab navigation (authenticated routes)
+│       ├── _layout.tsx         # Tabs layout with auth guard
+│       ├── profile.tsx         # User profile screen
+│       └── admin/              # Admin-only routes
+│           ├── _layout.tsx     # Admin layout with role guard
+│           └── users.tsx       # User management screen
 ├── components/
-│   └── ui/
-│       ├── Button.tsx               # Custom button component
-│       ├── Input.tsx                # Custom input component
-│       └── Card.tsx                 # Custom card component
+│   └── ui/                      # Reusable UI components
+│       ├── Button.tsx          # Custom button component
+│       ├── Input.tsx           # Custom input component
+│       └── Card.tsx            # Custom card component
 ├── contexts/
-│   └── AuthContext.tsx              # Auth context provider
+│   └── AuthContext.tsx         # Authentication context provider
 ├── lib/
-│   ├── api-client.ts                # Axios instance with interceptors
-│   └── secure-storage.ts            # SecureStore wrapper
+│   ├── api-client.ts           # Axios instance with interceptors
+│   └── secure-storage.ts       # SecureStore wrapper
 ├── types/
-│   └── auth.ts                      # Auth DTOs (shared with web)
-├── app.json                         # Expo configuration
-├── package.json                     # Dependencies
-├── tsconfig.json                    # TypeScript config
-├── tailwind.config.js               # NativeWind config
-├── babel.config.js                  # Babel config
-└── .env                             # Environment variables
+│   └── auth.ts                 # TypeScript DTOs (shared with backend)
+├── global.css                   # Tailwind CSS imports
+├── nativewind-env.d.ts         # NativeWind type definitions
+└── package.json
+
 ```
 
-## Setup Instructions
+## 🔐 Authentication Flow
 
-### 1. Install Dependencies
+### Login Flow
+1. User enters credentials in `(auth)/login`
+2. POST `/auth/login` → receives JWT token + user data
+3. Token saved to **SecureStore** (encrypted)
+4. User data saved to SecureStore
+5. Navigate to `(tabs)/profile`
 
+### Registration Flow
+1. User fills form in `(auth)/register`
+2. POST `/auth/register` → creates account
+3. Navigate to `(auth)/login`
+
+### Forgot Password Flow
+1. User enters email in `(auth)/forgot`
+2. POST `/auth/forgot-password` → sends reset email
+3. Navigate to `(auth)/login`
+
+### Token Management
+- **Axios Interceptor** automatically adds `Authorization: Bearer <token>` header
+- On 401 response → clears auth and redirects to login
+- Token stored in **SecureStore** (never AsyncStorage - it's unencrypted!)
+
+## 🛡️ Route Guards
+
+### Auth Guard (`(tabs)/_layout.tsx`)
+```typescript
+if (!isAuthenticated) {
+  return <Redirect href="/(auth)/login" />;
+}
+```
+
+### Role Guard (`(tabs)/admin/_layout.tsx`)
+```typescript
+const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+if (!isAdmin) {
+  return <Redirect href="/(tabs)/profile" />;
+}
+```
+
+### Tab Visibility
+```typescript
+<Tabs.Screen
+  name="admin"
+  options={{
+    href: isAdmin ? '/admin' : null, // Hide tab if not admin
+  }}
+/>
+```
+
+## 📋 Screens
+
+### Authentication Screens
+
+#### `(auth)/login`
+- Username/email + password form
+- POST `/auth/login`
+- Saves JWT to SecureStore
+- Navigates to `(tabs)/profile`
+
+#### `(auth)/register`
+- Username, email, password, confirm password
+- POST `/auth/register`
+- Navigates to login on success
+
+#### `(auth)/forgot`
+- Email input
+- POST `/auth/forgot-password`
+- Sends reset instructions via email
+
+### Authenticated Screens
+
+#### `(tabs)/profile`
+- GET `/api/users/me`
+- Displays:
+  - UUID
+  - Username
+  - Email
+  - Roles (badges)
+  - Member since date
+- Logout button
+
+#### `(tabs)/admin/users` (ROLE_ADMIN only)
+- GET `/api/users`
+- Lists all users with:
+  - Username & email
+  - UUID
+  - Roles (color-coded badges)
+  - Member since date
+- Pull-to-refresh
+
+## 🎨 UI Components
+
+### Button
+```tsx
+<Button 
+  title="Sign In" 
+  variant="primary" // primary | secondary | outline
+  isLoading={false}
+  onPress={handleSubmit}
+/>
+```
+
+### Input
+```tsx
+<Input
+  label="Email"
+  placeholder="Enter email"
+  value={email}
+  onChangeText={setEmail}
+  error={errors.email}
+  keyboardType="email-address"
+/>
+```
+
+### Card
+```tsx
+<Card className="mb-4">
+  <Text>Content here</Text>
+</Card>
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+Create `.env` file:
+```env
+EXPO_PUBLIC_API_URL=http://localhost:8080/demo
+```
+
+### API Base URL
+- Development: `http://localhost:8080/demo`
+- Production: Update in `.env`
+
+## 📦 Dependencies
+
+```json
+{
+  "expo": "~52.0.0",
+  "expo-router": "~4.0.0",
+  "expo-secure-store": "~14.0.0",
+  "react-native": "0.76.5",
+  "axios": "^1.7.9",
+  "@tanstack/react-query": "^5.62.8",
+  "nativewind": "^4.1.23",
+  "react-hook-form": "^7.54.2",
+  "zod": "^3.24.1"
+}
+```
+
+## 🚀 Getting Started
+
+### Install Dependencies
 ```bash
 cd mobile
 npm install
 ```
 
-### 2. Install Expo CLI (if not already installed)
-
+### Start Development Server
 ```bash
-npm install -g expo-cli
-```
-
-### 3. Configure Environment Variables
-
-Create `.env`:
-
-```env
-EXPO_PUBLIC_API_URL=http://localhost:8080/demo
-```
-
-**Note for iOS Simulator/Android Emulator:**
-- iOS Simulator: Use `http://localhost:8080/demo`
-- Android Emulator: Use `http://10.0.2.2:8080/demo`
-- Physical Device: Use your computer's IP address (e.g., `http://192.168.1.100:8080/demo`)
-
-### 4. Run the App
-
-```bash
-# Start Expo dev server
 npm start
+```
 
-# Run on iOS Simulator
+### Run on Device/Simulator
+```bash
+# iOS
 npm run ios
 
-# Run on Android Emulator
+# Android
 npm run android
+
+# Web (for testing)
+npm run web
 ```
 
-## File Structure Details
+## 🔒 Security Best Practices
 
-### Root Layout (app/_layout.tsx)
+### ✅ DO
+- Store JWT in **SecureStore** (encrypted)
+- Use HTTPS in production
+- Validate all user inputs
+- Handle 401 responses (token expiry)
+- Clear auth on logout
 
-```tsx
-import { Stack } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { useState } from 'react';
-import "../global.css";
+### ❌ DON'T
+- Store tokens in AsyncStorage (unencrypted)
+- Store sensitive data in plain text
+- Trust client-side validation alone
+- Hardcode API URLs
 
-export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 60 * 1000,
-        refetchOnWindowFocus: false,
-      },
-    },
-  }));
+## 📱 TypeScript Types
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
+All DTOs match the Spring Boot backend exactly:
+
+```typescript
+// Shared types from mobile/types/auth.ts
+interface LoginRequest {
+  usernameOrEmail: string;
+  password: string;
+}
+
+interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+
+interface AuthResponse {
+  token: string;
+  uuid: string;
+  username: string;
+  roles: string[];
+}
+
+interface UserProfileResponse {
+  uuid: string;
+  username: string;
+  email: string;
+  roles: string[];
+  createdAt: string;
 }
 ```
 
-### Entry Point (app/index.tsx)
+## 🎯 API Endpoints
 
-```tsx
-import { Redirect } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import { View, ActivityIndicator } from 'react-native';
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/auth/login` | Login | No |
+| POST | `/auth/register` | Register | No |
+| POST | `/auth/forgot-password` | Forgot password | No |
+| GET | `/api/users/me` | Get current user | Yes |
+| GET | `/api/users` | List all users | Yes (ROLE_ADMIN) |
 
-export default function Index() {
-  const { isAuthenticated, isLoading } = useAuth();
+## 🧪 Testing
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+### Test User Accounts
+After running the backend with DataInitializer:
 
-  return <Redirect href={isAuthenticated ? '/(tabs)/profile' : '/(auth)/login'} />;
-}
-```
+**Regular User:**
+- Username: `user`
+- Password: `password`
+- Roles: `ROLE_USER`
 
-### Auth Layout (app/(auth)/_layout.tsx)
+**Admin User:**
+- Username: `admin`
+- Password: `password`
+- Roles: `ROLE_USER`, `ROLE_ADMIN`
 
-```tsx
-import { Stack } from 'expo-router';
+## 📝 Notes
 
-export default function AuthLayout() {
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="register" />
-      <Stack.Screen name="forgot" />
-    </Stack>
-  );
-}
-```
+- **Expo Router** uses file-based routing
+- Groups in parentheses `(auth)` don't appear in URL
+- `_layout.tsx` files define nested layouts
+- SecureStore is hardware-backed on iOS, encrypted on Android
+- NativeWind requires `className` prop (not `style`)
 
-### Login Screen (app/(auth)/login.tsx)
+## 🐛 Troubleshooting
 
-```tsx
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { useRouter, Link } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useAuth } from '@/contexts/AuthContext';
-import apiClient from '@/lib/api-client';
-import type { LoginRequest, AuthResponse } from '@/types/auth';
+### "Cannot connect to server"
+- Ensure backend is running on `http://localhost:8080`
+- For Android emulator, use `http://10.0.2.2:8080`
+- For physical device, use your computer's IP address
 
-const loginSchema = z.object({
-  usernameOrEmail: z.string().min(1, 'Username or email is required'),
-  password: z.string().min(1, 'Password is required'),
-});
+### "SecureStore not available"
+- SecureStore requires a physical device or simulator
+- Not available in Expo Go on web
 
-type LoginFormData = z.infer<typeof loginSchema>;
+### TypeScript errors with className
+- Ensure `nativewind-env.d.ts` exists
+- Restart TypeScript server in VS Code
 
-export default function LoginScreen() {
-  const router = useRouter();
-  const { login } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+## 📄 License
 
-  const { control, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
-
-  const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true);
-    try {
-      const response = await apiClient.post<AuthResponse>('/auth/login', data);
-      await login(response.data);
-      router.replace('/(tabs)/profile');
-    } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Login failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <View className="flex-1 bg-white px-6 justify-center">
-      <Text className="text-3xl font-bold mb-8 text-center">Sign In</Text>
-      
-      <View className="mb-4">
-        <Text className="text-sm font-medium mb-2">Username or Email</Text>
-        <Controller
-          control={control}
-          name="usernameOrEmail"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              className="border border-gray-300 rounded-lg px-4 py-3"
-              placeholder="Enter username or email"
-              value={value}
-              onChangeText={onChange}
-              autoCapitalize="none"
-              editable={!isLoading}
-            />
-          )}
-        />
-        {errors.usernameOrEmail && (
-          <Text className="text-red-500 text-sm mt-1">{errors.usernameOrEmail.message}</Text>
-        )}
-      </View>
-
-      <View className="mb-4">
-        <Text className="text-sm font-medium mb-2">Password</Text>
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              className="border border-gray-300 rounded-lg px-4 py-3"
-              placeholder="Enter password"
-              value={value}
-              onChangeText={onChange}
-              secureTextEntry
-              editable={!isLoading}
-            />
-          )}
-        />
-        {errors.password && (
-          <Text className="text-red-500 text-sm mt-1">{errors.password.message}</Text>
-        )}
-      </View>
-
-      <Link href="/(auth)/forgot" asChild>
-        <TouchableOpacity className="mb-6">
-          <Text className="text-blue-600 text-sm">Forgot password?</Text>
-        </TouchableOpacity>
-      </Link>
-
-      <TouchableOpacity
-        className="bg-blue-600 rounded-lg py-4 mb-4"
-        onPress={handleSubmit(onSubmit)}
-        disabled={isLoading}
-      >
-        <Text className="text-white text-center font-semibold">
-          {isLoading ? 'Signing in...' : 'Sign In'}
-        </Text>
-      </TouchableOpacity>
-
-      <View className="flex-row justify-center">
-        <Text className="text-gray-600">Don't have an account? </Text>
-        <Link href="/(auth)/register" asChild>
-          <TouchableOpacity>
-            <Text className="text-blue-600 font-semibold">Sign up</Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-    </View>
-  );
-}
-```
-
-### Register Screen (app/(auth)/register.tsx)
-
-```tsx
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { useRouter, Link } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import apiClient from '@/lib/api-client';
-import type { RegisterRequest } from '@/types/auth';
-
-const registerSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type RegisterFormData = z.infer<typeof registerSchema>;
-
-export default function RegisterScreen() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const { control, handleSubmit, formState: { errors } } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
-  });
-
-  const onSubmit = async (data: RegisterFormData) => {
-    setIsLoading(true);
-    try {
-      await apiClient.post<RegisterRequest>('/auth/register', data);
-      Alert.alert('Success', 'Account created! Please login.', [
-        { text: 'OK', onPress: () => router.replace('/(auth)/login') }
-      ]);
-    } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Registration failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <ScrollView className="flex-1 bg-white">
-      <View className="px-6 py-12">
-        <Text className="text-3xl font-bold mb-8 text-center">Create Account</Text>
-        
-        <View className="mb-4">
-          <Text className="text-sm font-medium mb-2">Username</Text>
-          <Controller
-            control={control}
-            name="username"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3"
-                placeholder="Choose a username"
-                value={value}
-                onChangeText={onChange}
-                autoCapitalize="none"
-                editable={!isLoading}
-              />
-            )}
-          />
-          {errors.username && (
-            <Text className="text-red-500 text-sm mt-1">{errors.username.message}</Text>
-          )}
-        </View>
-
-        <View className="mb-4">
-          <Text className="text-sm font-medium mb-2">Email</Text>
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3"
-                placeholder="you@example.com"
-                value={value}
-                onChangeText={onChange}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                editable={!isLoading}
-              />
-            )}
-          />
-          {errors.email && (
-            <Text className="text-red-500 text-sm mt-1">{errors.email.message}</Text>
-          )}
-        </View>
-
-        <View className="mb-6">
-          <Text className="text-sm font-medium mb-2">Password</Text>
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3"
-                placeholder="Create a password"
-                value={value}
-                onChangeText={onChange}
-                secureTextEntry
-                editable={!isLoading}
-              />
-            )}
-          />
-          {errors.password && (
-            <Text className="text-red-500 text-sm mt-1">{errors.password.message}</Text>
-          )}
-        </View>
-
-        <TouchableOpacity
-          className="bg-blue-600 rounded-lg py-4 mb-4"
-          onPress={handleSubmit(onSubmit)}
-          disabled={isLoading}
-        >
-          <Text className="text-white text-center font-semibold">
-            {isLoading ? 'Creating account...' : 'Create Account'}
-          </Text>
-        </TouchableOpacity>
-
-        <View className="flex-row justify-center">
-          <Text className="text-gray-600">Already have an account? </Text>
-          <Link href="/(auth)/login" asChild>
-            <TouchableOpacity>
-              <Text className="text-blue-600 font-semibold">Sign in</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      </View>
-    </ScrollView>
-  );
-}
-```
-
-### Tabs Layout (app/(tabs)/_layout.tsx)
-
-```tsx
-import { Tabs, Redirect } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import { View, ActivityIndicator } from 'react-native';
-
-export default function TabsLayout() {
-  const { isAuthenticated, isLoading, user } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
-
-  return (
-    <Tabs screenOptions={{ headerShown: true }}>
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: () => null,
-        }}
-      />
-      {isAdmin && (
-        <Tabs.Screen
-          name="admin/users"
-          options={{
-            title: 'Users',
-            tabBarIcon: () => null,
-          }}
-        />
-      )}
-    </Tabs>
-  );
-}
-```
-
-### Profile Screen (app/(tabs)/profile.tsx)
-
-```tsx
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
-import apiClient from '@/lib/api-client';
-import type { UserProfileResponse } from '@/types/auth';
-
-export default function ProfileScreen() {
-  const router = useRouter();
-  const { logout } = useAuth();
-
-  const { data: profile, isLoading, error } = useQuery({
-    queryKey: ['user', 'profile'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<UserProfileResponse>('/api/users/me');
-      return data;
-    },
-  });
-
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/(auth)/login');
-  };
-
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View className="flex-1 items-center justify-center px-6">
-        <Text className="text-red-500 text-center">Failed to load profile</Text>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView className="flex-1 bg-gray-50">
-      <View className="p-6">
-        <View className="bg-white rounded-lg p-6 mb-4 shadow-sm">
-          <Text className="text-2xl font-bold mb-4">Profile</Text>
-          
-          <View className="mb-4">
-            <Text className="text-sm text-gray-500 mb-1">Username</Text>
-            <Text className="text-lg font-semibold">{profile?.username}</Text>
-          </View>
-
-          <View className="mb-4">
-            <Text className="text-sm text-gray-500 mb-1">Email</Text>
-            <Text className="text-lg">{profile?.email}</Text>
-          </View>
-
-          <View className="mb-4">
-            <Text className="text-sm text-gray-500 mb-1">UUID</Text>
-            <Text className="text-sm text-gray-600">{profile?.uuid}</Text>
-          </View>
-
-          <View className="mb-4">
-            <Text className="text-sm text-gray-500 mb-1">Roles</Text>
-            <View className="flex-row flex-wrap gap-2 mt-1">
-              {profile?.roles.map((role) => (
-                <View key={role} className="bg-blue-100 px-3 py-1 rounded-full">
-                  <Text className="text-blue-800 text-sm font-medium">{role}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View className="mb-4">
-            <Text className="text-sm text-gray-500 mb-1">Member Since</Text>
-            <Text className="text-sm">{new Date(profile?.createdAt || '').toLocaleDateString()}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          className="bg-red-600 rounded-lg py-4"
-          onPress={handleLogout}
-        >
-          <Text className="text-white text-center font-semibold">Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-}
-```
-
-### Admin Users Screen (app/(tabs)/admin/users.tsx)
-
-```tsx
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
-import { Redirect } from 'expo-router';
-import apiClient from '@/lib/api-client';
-import type { UserProfileResponse } from '@/types/auth';
-
-export default function AdminUsersScreen() {
-  const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
-
-  const { data: users, isLoading, error } = useQuery({
-    queryKey: ['admin', 'users'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<UserProfileResponse[]>('/api/users');
-      return data;
-    },
-    enabled: isAdmin,
-  });
-
-  if (!isAdmin) {
-    return <Redirect href="/(tabs)/profile" />;
-  }
-
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View className="flex-1 items-center justify-center px-6">
-        <Text className="text-red-500 text-center">Failed to load users</Text>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView className="flex-1 bg-gray-50">
-      <View className="p-6">
-        <Text className="text-2xl font-bold mb-4">All Users</Text>
-        
-        {users?.map((user) => (
-          <View key={user.uuid} className="bg-white rounded-lg p-4 mb-3 shadow-sm">
-            <Text className="text-lg font-semibold mb-2">{user.username}</Text>
-            <Text className="text-gray-600 mb-2">{user.email}</Text>
-            <View className="flex-row flex-wrap gap-2">
-              {user.roles.map((role) => (
-                <View key={role} className="bg-blue-100 px-2 py-1 rounded">
-                  <Text className="text-blue-800 text-xs">{role}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
-  );
-}
-```
-
-### Global Styles (global.css)
-
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-```
-
-## Authentication Flow
-
-### 1. Login Process
-```
-User submits login form
-→ POST /demo/auth/login
-→ Backend returns { token, uuid, username, roles }
-→ Save token to SecureStore
-→ Save user data to SecureStore
-→ Update AuthContext
-→ Navigate to /(tabs)/profile
-```
-
-### 2. API Requests with Token
-```
-Axios interceptor reads token from SecureStore
-→ Add Authorization: Bearer <token> header
-→ Make API request
-```
-
-### 3. Token Expiration
-```
-API returns 401
-→ Axios interceptor clears SecureStore
-→ AuthContext updates
-→ Expo Router redirects to /(auth)/login
-```
-
-## Security Notes
-
-1. **JWT Storage**: Tokens stored in SecureStore (encrypted, never AsyncStorage)
-2. **Auto-logout**: 401 responses automatically clear auth and redirect
-3. **Role Guards**: Admin routes check for ROLE_ADMIN
-4. **HTTPS**: Always use HTTPS in production
-
-## Building for Production
-
-### iOS
-
-```bash
-expo build:ios
-```
-
-### Android
-
-```bash
-expo build:android
-```
-
-## Troubleshooting
-
-### Cannot connect to backend
-
-**iOS Simulator**: Use `http://localhost:8080/demo`
-**Android Emulator**: Use `http://10.0.2.2:8080/demo`
-**Physical Device**: Use your computer's IP (e.g., `http://192.168.1.100:8080/demo`)
-
-### CORS Issues
-
-Ensure Spring Boot backend allows mobile origins:
-
-```java
-config.setAllowedOrigins(Arrays.asList(
-    "http://localhost:3000",
-    "exp://192.168.1.100:8081"  // Add Expo dev server
-));
-```
-
-### SecureStore not available
-
-SecureStore requires a physical device or simulator. It won't work in Expo Go on web.
-
-## License
-
-This project is provided as-is for educational purposes.
+MIT
