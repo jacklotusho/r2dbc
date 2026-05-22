@@ -46,8 +46,7 @@ public class SecurityConfig {
                                 "/auth/register",
                                 "/auth/login",
                                 "/auth/forgot-password",
-                                "/auth/reset-password",
-                                "/auth/ldap/login"          // LDAP/AD login — public
+                                "/auth/reset-password"
                         ).permitAll()
                         .pathMatchers(HttpMethod.GET, "/auth/**").permitAll()
                         

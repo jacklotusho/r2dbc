@@ -2,7 +2,6 @@ package com.example.r2dbc.service;
 
 import com.example.r2dbc.dto.AuthResponse;
 import com.example.r2dbc.dto.LoginRequest;
-import com.example.r2dbc.exception.LdapUserException;
 import com.example.r2dbc.security.JwtUtil;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
@@ -20,31 +19,32 @@ public class AuthService implements ReactiveUserDetailsService {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final LdapAuthService ldapAuthService;
     
-    public AuthService(UserService userService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public AuthService(UserService userService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil, LdapAuthService ldapAuthService) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.ldapAuthService = ldapAuthService;
     }
     
     /**
      * Login user and generate JWT token
-     * Try username first, then email if username not found
+     * Try local database first, routing to LDAP or local password check as needed,
+     * and fallback to LDAP authentication for new auto-provisioned accounts.
      */
     public Mono<AuthResponse> login(LoginRequest request) {
         return userService.findByUsername(request.getUsernameOrEmail())
                 .switchIfEmpty(userService.findByEmail(request.getUsernameOrEmail()))
-                .switchIfEmpty(Mono.error(new UsernameNotFoundException("User not found")))
                 .flatMap(user -> {
-                    // Block LDAP-managed users from using the local login endpoint
+                    // Route LDAP-managed users to LDAP authentication
                     if (user.getPasswordHash() != null &&
                             user.getPasswordHash().startsWith(LdapAuthService.LDAP_PASSWORD_PREFIX)) {
-                        return Mono.error(new LdapUserException(
-                                "This account is managed by LDAP. Please use /auth/ldap/login"));
+                        return ldapAuthService.authenticateWithLdap(request.getUsernameOrEmail(), request.getPassword());
                     }
 
                     if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-                        return Mono.error(new RuntimeException("Invalid credentials"));
+                        return Mono.error(new org.springframework.security.authentication.BadCredentialsException("Invalid credentials"));
                     }
                     
                     if (!user.isEnabled()) {
@@ -63,7 +63,17 @@ public class AuthService implements ReactiveUserDetailsService {
                                         .roles(roles)
                                         .build();
                             });
-                });
+                })
+                .switchIfEmpty(Mono.defer(() ->
+                        // If user is not found in the database, attempt LDAP authentication (for new corporate users)
+                        ldapAuthService.authenticateWithLdap(request.getUsernameOrEmail(), request.getPassword())
+                                .onErrorMap(ex -> {
+                                    if (ex instanceof org.springframework.security.authentication.BadCredentialsException) {
+                                        return ex;
+                                    }
+                                    return new org.springframework.security.authentication.BadCredentialsException("Invalid credentials", ex);
+                                })
+                ));
     }
     
     /**
