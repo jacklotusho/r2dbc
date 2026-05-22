@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -45,6 +46,7 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
             @ApiResponse(responseCode = "409", description = "Username or email already exists")
     })
+    @SecurityRequirements   // public endpoint — no Bearer token required
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -77,6 +79,7 @@ public class AuthController {
             ),
             @ApiResponse(responseCode = "401", description = "Invalid credentials")
     })
+    @SecurityRequirements   // public endpoint — no Bearer token required
     @PostMapping("/login")
     public Mono<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
