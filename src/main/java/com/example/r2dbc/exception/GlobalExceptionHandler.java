@@ -1,7 +1,9 @@
 package com.example.r2dbc.exception;
 
+import com.example.r2dbc.exception.LdapUserException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -34,6 +36,20 @@ public class GlobalExceptionHandler {
         return Mono.just(ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(createErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage())));
+    }
+
+    @ExceptionHandler(LdapUserException.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleLdapUser(LdapUserException ex) {
+        return Mono.just(ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(createErrorResponse(HttpStatus.FORBIDDEN.value(), ex.getMessage())));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleBadCredentials(BadCredentialsException ex) {
+        return Mono.just(ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(createErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Invalid credentials")));
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)

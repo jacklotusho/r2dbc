@@ -68,3 +68,25 @@ springdoc:
     try-it-out-enabled: true
     operations-sorter: method
     tags-sorter: alpha
+
+# LDAP / Active Directory Configuration
+# All values can be overridden via environment variables.
+ldap:
+  url: ${LDAP_URL:ldap://ldap.uknow2.home:389/}
+  searchbase: ${LDAP_SEARCHBASE:dc=uknow2,dc=home}
+  usernamefilter: ${LDAP_USERNAME_FILTER:(&(mail={0}))}
+  emailfilter: ${LDAP_EMAIL_FILTER:(&(mail={0})(objectclass=person))}
+  attributes-mapping: ${LDAP_ATTRIBUTES_MAPPING:uid:uid;email:mail;name:givenName,sn}
+  user-search-base: ${LDAP_USER_SEARCH_BASE:ou=people,dc=uknow2,dc=home}
+  group-search-base: ${LDAP_GROUP_SEARCH_BASE:ou=groups,dc=uknow2,dc=home}
+  group-member-attribute: ${LDAP_GROUP_MEMBER_ATTRIBUTE:member}
+  group-prefix: ${LDAP_GROUP_PREFIX:}
+  manager-dn: ${LDAP_MANAGER_DN:cn=admin,dc=uknow2,dc=home}
+  manager-password: ${LDAP_MANAGER_PASSWORD:}
+  # Optional: DN of the group whose members receive ROLE_ADMIN
+  admin-group-dn: ${LDAP_ADMIN_GROUP_DN:}
+
+  # --- Active Directory variant ---
+  # Uncomment and set these to enable AD mode (ignores standard LDAP fields above).
+  # ad-domain: ${LDAP_AD_DOMAIN:example.com}
+  # ad-url: ${LDAP_AD_URL:ldap://ad.example.com}

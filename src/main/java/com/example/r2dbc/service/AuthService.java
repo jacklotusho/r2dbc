@@ -2,6 +2,7 @@ package com.example.r2dbc.service;
 
 import com.example.r2dbc.dto.AuthResponse;
 import com.example.r2dbc.dto.LoginRequest;
+import com.example.r2dbc.exception.LdapUserException;
 import com.example.r2dbc.security.JwtUtil;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
@@ -35,6 +36,13 @@ public class AuthService implements ReactiveUserDetailsService {
                 .switchIfEmpty(userService.findByEmail(request.getUsernameOrEmail()))
                 .switchIfEmpty(Mono.error(new UsernameNotFoundException("User not found")))
                 .flatMap(user -> {
+                    // Block LDAP-managed users from using the local login endpoint
+                    if (user.getPasswordHash() != null &&
+                            user.getPasswordHash().startsWith(LdapAuthService.LDAP_PASSWORD_PREFIX)) {
+                        return Mono.error(new LdapUserException(
+                                "This account is managed by LDAP. Please use /auth/ldap/login"));
+                    }
+
                     if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
                         return Mono.error(new RuntimeException("Invalid credentials"));
                     }

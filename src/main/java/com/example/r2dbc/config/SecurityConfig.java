@@ -42,7 +42,13 @@ public class SecurityConfig {
                 )
                 .authorizeExchange(exchanges -> exchanges
                         // Public endpoints
-                        .pathMatchers(HttpMethod.POST, "/auth/register", "/auth/login", "/auth/forgot-password", "/auth/reset-password").permitAll()
+                        .pathMatchers(HttpMethod.POST,
+                                "/auth/register",
+                                "/auth/login",
+                                "/auth/forgot-password",
+                                "/auth/reset-password",
+                                "/auth/ldap/login"          // LDAP/AD login — public
+                        ).permitAll()
                         .pathMatchers(HttpMethod.GET, "/auth/**").permitAll()
                         
                         // Swagger/OpenAPI endpoints and static resources

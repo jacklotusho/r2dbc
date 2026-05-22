@@ -1,12 +1,19 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
+import { Feather } from '@expo/vector-icons';
 import apiClient from '@/lib/api-client';
 import { RegisterRequest } from '@/types/auth';
+import {
+  Screen,
+  HeroHeader,
+  FormField,
+  PasswordField,
+  PrimaryButton,
+  SocialButton,
+  Divider,
+} from '@/src/components';
+import { Colors, Typography, Spacing } from '@/src/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -71,116 +78,142 @@ export default function RegisterScreen() {
     }
   };
 
+  const handleGoogleSignUp = () => {
+    Alert.alert('Google Sign Up', 'Google signup not implemented yet');
+  };
+
   return (
-    <LinearGradient
-      colors={['#EFF6FF', '#E0E7FF', '#C7D2FE']}
-      style={styles.gradient}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="w-full max-w-md mx-auto px-6">
-            {/* Header Section */}
-            <View className="items-center mb-10 mt-12">
-              <View className="w-24 h-24 bg-blue-600 rounded-full items-center justify-center mb-6 shadow-2xl">
-                <Text className="text-white text-5xl font-bold">R</Text>
-              </View>
-              <Text className="text-4xl font-bold text-gray-900 text-center mb-3">
-                Create Account
-              </Text>
-              <Text className="text-gray-600 text-center text-lg px-4">
-                Join us and get started today
-              </Text>
-            </View>
+    <Screen>
+      {/* Hero Header */}
+      <HeroHeader
+        logoLetter="R"
+        title="Create Account"
+        subtitle="Join us and get started today"
+        topRightButton={
+          <TouchableOpacity 
+            style={styles.settingsButton}
+            onPress={() => router.push('/(auth)/login')}
+          >
+            <Feather name="arrow-left" size={20} color={Colors.textOnPrimary} />
+          </TouchableOpacity>
+        }
+      />
 
-            {/* Form Card */}
-            <Card className="mb-6">
-          <Input
-            label="Username"
-            placeholder="Choose a username"
-            value={formData.username}
-            onChangeText={(text) => {
-              setFormData({ ...formData, username: text });
-              setErrors({ ...errors, username: undefined });
-            }}
-            error={errors.username}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+      {/* Form Section */}
+      <View style={styles.formSection}>
+        {/* Username Field */}
+        <FormField
+          label="USERNAME"
+          placeholder="Choose a username"
+          leftIcon="user"
+          value={formData.username}
+          onChangeText={(text) => {
+            setFormData({ ...formData, username: text });
+            setErrors({ ...errors, username: undefined });
+          }}
+          error={errors.username}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
-          <Input
-            label="Email"
-            placeholder="Enter your email"
-            value={formData.email}
-            onChangeText={(text) => {
-              setFormData({ ...formData, email: text });
-              setErrors({ ...errors, email: undefined });
-            }}
-            error={errors.email}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+        {/* Email Field */}
+        <FormField
+          label="EMAIL ADDRESS"
+          placeholder="Enter your email"
+          leftIcon="mail"
+          value={formData.email}
+          onChangeText={(text) => {
+            setFormData({ ...formData, email: text });
+            setErrors({ ...errors, email: undefined });
+          }}
+          error={errors.email}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
-          <Input
-            label="Password"
-            placeholder="Create a password"
-            value={formData.password}
-            onChangeText={(text) => {
-              setFormData({ ...formData, password: text });
-              setErrors({ ...errors, password: undefined });
-            }}
-            error={errors.password}
-            secureTextEntry
-          />
+        {/* Password Field */}
+        <PasswordField
+          label="PASSWORD"
+          placeholder="Create a password"
+          value={formData.password}
+          onChangeText={(text) => {
+            setFormData({ ...formData, password: text });
+            setErrors({ ...errors, password: undefined });
+          }}
+          error={errors.password}
+        />
 
-          <Input
-            label="Confirm Password"
-            placeholder="Confirm your password"
-            value={confirmPassword}
-            onChangeText={(text) => {
-              setConfirmPassword(text);
-              setErrors({ ...errors, confirmPassword: undefined });
-            }}
-            error={errors.confirmPassword}
-            secureTextEntry
-          />
+        {/* Confirm Password Field */}
+        <PasswordField
+          label="CONFIRM PASSWORD"
+          placeholder="Confirm your password"
+          value={confirmPassword}
+          onChangeText={(text) => {
+            setConfirmPassword(text);
+            setErrors({ ...errors, confirmPassword: undefined });
+          }}
+          error={errors.confirmPassword}
+        />
 
-              <Button
-                title="Sign Up"
-                onPress={handleRegister}
-                isLoading={isLoading}
-                className="mt-2"
-              />
-            </Card>
+        {/* Sign Up Button */}
+        <PrimaryButton
+          title="Sign Up"
+          onPress={handleRegister}
+          isLoading={isLoading}
+        />
 
-            {/* Footer */}
-            <View className="flex-row justify-center items-center mt-6 mb-8">
-              <Text className="text-gray-700 text-base">Already have an account? </Text>
-              <Link href="/(auth)/login" asChild>
-                <Text className="text-blue-600 font-bold text-base">Sign In</Text>
-              </Link>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+        {/* Divider */}
+        <Divider />
+
+        {/* Google Button */}
+        <SocialButton provider="google" onPress={handleGoogleSignUp} />
+
+        {/* Sign In Row */}
+        <View style={styles.signInContainer}>
+          <Text style={styles.signInText}>Already have an account? </Text>
+          <Link href="/(auth)/login" asChild>
+            <TouchableOpacity>
+              <Text style={styles.signInLink}>Sign in</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
+  settingsButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
-    minHeight: '100%',
+    alignItems: 'center',
+  },
+  formSection: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+  },
+  signInContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 30,
+    marginTop: Spacing.md,
+  },
+  signInText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  signInLink: {
+    fontSize: 13,
+    color: Colors.textLink,
+    fontWeight: '700',
   },
 });
+
 

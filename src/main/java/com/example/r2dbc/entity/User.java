@@ -30,11 +30,14 @@ public class User {
     
     @Column("created_at")
     private LocalDateTime createdAt;
+
+    @Column("auth_provider")
+    private String authProvider = "LOCAL";
     
     public User() {
     }
     
-    public User(Long id, UUID uuid, String username, String email, String passwordHash, boolean enabled, LocalDateTime createdAt) {
+    public User(Long id, UUID uuid, String username, String email, String passwordHash, boolean enabled, LocalDateTime createdAt, String authProvider) {
         this.id = id;
         this.uuid = uuid;
         this.username = username;
@@ -42,6 +45,7 @@ public class User {
         this.passwordHash = passwordHash;
         this.enabled = enabled;
         this.createdAt = createdAt;
+        this.authProvider = authProvider != null ? authProvider : "LOCAL";
     }
     
     public Long getId() {
@@ -99,7 +103,15 @@ public class User {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
-    
+
+    public String getAuthProvider() {
+        return authProvider;
+    }
+
+    public void setAuthProvider(String authProvider) {
+        this.authProvider = authProvider;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -112,7 +124,8 @@ public class User {
         private String passwordHash;
         private boolean enabled;
         private LocalDateTime createdAt;
-        
+        private String authProvider = "LOCAL";
+
         public Builder id(Long id) {
             this.id = id;
             return this;
@@ -147,9 +160,14 @@ public class User {
             this.createdAt = createdAt;
             return this;
         }
-        
+
+        public Builder authProvider(String authProvider) {
+            this.authProvider = authProvider;
+            return this;
+        }
+
         public User build() {
-            return new User(id, uuid, username, email, passwordHash, enabled, createdAt);
+            return new User(id, uuid, username, email, passwordHash, enabled, createdAt, authProvider);
         }
     }
 }

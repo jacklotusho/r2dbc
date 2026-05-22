@@ -13,9 +13,10 @@
 | Reactive | Spring WebFlux + Spring Data R2DBC |
 | Database | PostgreSQL (prod) · H2 R2DBC (tests) |
 | Migrations | Flyway (separate JDBC datasource) |
-| Auth | Spring Security WebFlux · JWT via jjwt |
+| Auth | Spring Security WebFlux · JWT via jjwt · LDAP / Active Directory |
+| LDAP | spring-ldap-core · spring-security-ldap (blocking → wrapped in boundedElastic) |
 | API Docs | springdoc-openapi-starter-webflux-ui v3.0.0 |
-| Build | Gradle (Kotlin DSL) or Maven |
+| Build | Maven |
 
 ---
 
@@ -34,6 +35,7 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     enabled BOOLEAN DEFAULT true,
+    auth_provider VARCHAR(20) NOT NULL DEFAULT 'LOCAL',  -- 'LOCAL' or 'LDAP'
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -77,7 +79,10 @@ CREATE TABLE password_reset_tokens (
 );
 
 CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
-CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+-- V3__ldap_user.sql
+ALTER TABLE users ADD COLUMN auth_provider VARCHAR(20) NOT NULL DEFAULT 'LOCAL';
+UPDATE users SET auth_provider = 'LOCAL';
+CREATE INDEX idx_users_auth_provider ON users(auth_provider);
 
 ```
 
@@ -108,6 +113,7 @@ public class User {
     String email;
     String passwordHash;
     boolean enabled;
+    String authProvider;    // "LOCAL" or "LDAP"
     LocalDateTime createdAt;
 }
 
@@ -154,6 +160,7 @@ RoleRepository extends R2dbcRepository<Role, Long>
 
 UserRoleRepository extends R2dbcRepository<UserRole, Long>
   Flux<UserRole> findByUserId(Long userId)
+  Mono<Void> deleteByUserIdAndRoleId(Long userId, Long roleId)
 
 PasswordResetTokenRepository extends R2dbcRepository<PasswordResetToken, Long>
   Mono<PasswordResetToken> findByToken(String token)
@@ -183,6 +190,16 @@ PasswordResetTokenRepository extends R2dbcRepository<PasswordResetToken, Long>
 - `sendPasswordResetEmail(String toEmail, String resetLink)` → `Mono<Void>`
 - Uses `Mono.fromCallable(() -> { send SimpleMailMessage; return null; }).subscribeOn(Schedulers.boundedElastic())`
 
+**LdapAuthService**
+- `authenticateWithLdap(username, password)` → `Mono<AuthResponse>`
+  1. `Mono.fromCallable(() -> ldapAuthManager.authenticate(...)).subscribeOn(boundedElastic)` — blocking bind
+  2. `findByUsername` in DB:
+     - Found + `auth_provider=LDAP` → sync email from LDAP `mail` attr, sync ROLE_ADMIN if in adminGroupDn
+     - Found + `auth_provider=LOCAL` → throw `BadCredentialsException` (username collision guard)
+     - Not found → **auto-provision**: save User with `auth_provider=LDAP`, `password_hash={LDAP}<bcrypt>`, assign ROLE_USER (+ ROLE_ADMIN if in admin group)
+  3. Issue JWT with `sub = user.uuid.toString()` — same as local auth
+- LDAP users blocked from `/auth/login` — `AuthService.login()` checks `passwordHash.startsWith("{LDAP}")`
+
 ---
 
 ### JWT Utility
@@ -209,6 +226,7 @@ SecurityWebFilterChain:
                    → load User by UUID → set Authentication (principal = UUID)
   - Public:        POST /auth/register, /auth/login
                    POST /auth/forgot-password, /auth/reset-password
+                   POST /auth/ldap/login
                    GET  /v3/api-docs/**, /swagger-ui/**, /webjars/**
   - Authenticated: GET /api/users/me
   - ROLE_ADMIN:    GET /api/users, POST /api/admin/**
@@ -218,9 +236,14 @@ SecurityWebFilterChain:
 
 ### Controllers & DTOs
 
-**AuthController**
+**AuthController** (`/auth`)
 - `POST /auth/register` → `RegisterRequest` → `Mono<AuthResponse>`
 - `POST /auth/login` → `LoginRequest` → `Mono<AuthResponse>`
+
+**LdapAuthController** (`/auth/ldap`)
+- `POST /auth/ldap/login` → `LdapLoginRequest(username, password)` → `Mono<AuthResponse>`
+  - Public endpoint (no Bearer token required)
+  - `@Tag(name = "LDAP Auth")` / `@SecurityRequirements` (no Swagger lock icon)
 
 **UserController**
 - `GET /api/users/me` → extract UUID from SecurityContext → `UserProfileResponse`
@@ -235,6 +258,7 @@ SecurityWebFilterChain:
 ```
 RegisterRequest       { username, email, password }
 LoginRequest          { usernameOrEmail, password }   ← try username then email
+LdapLoginRequest      { username, password }          ← LDAP/AD credentials
 AuthResponse          { token, uuid, username, roles }
 UserProfileResponse   { uuid, username, email, roles, createdAt }
 ForgotPasswordRequest { email }
@@ -324,6 +348,11 @@ jwt:
 - Reset token: `SecureRandom`, Base64 URL-safe, 32 bytes, single-use, 1hr expiry, never logged
 - `@EnableR2dbcRepositories` must be explicitly declared
 - `ReactiveSecurityContextHolder` principal must be cast to `UUID` in controllers
+- LDAP calls are blocking — always wrap in `Mono.fromCallable(...).subscribeOn(Schedulers.boundedElastic())`
+- LDAP users have `auth_provider=LDAP` and `password_hash` prefixed with `{LDAP}` — they cannot use `/auth/login`
+- `AuthService.login()` checks `passwordHash.startsWith("{LDAP}")` and throws `LdapUserException` (→ 403)
+- LDAP auto-provisioning: first login creates local DB row; subsequent logins sync email + admin role
+- AD mode enabled by setting `ldap.ad-url` — uses `ActiveDirectoryLdapAuthenticationProvider`
 
 ---
 
